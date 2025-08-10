@@ -78,14 +78,34 @@ public:
 	//TSharedPtr<class IOnlineSession, ESPMode::ThreadSafe> 헤더를 포함하지 않는 방식
 	IOnlineSessionPtr OnlineSessionInterface;
 
-protected:
+public:
 	UFUNCTION(BlueprintCallable)
 	void CreateGameSession();
 
+	UFUNCTION(BlueprintCallable)
+	void JoinGameSession();
+
+protected:
 	//콜백함수
 	void OnCreateSessionComplete(FName SessionName, bool bWasSuccessful);
+	void OnFindSessionsComplete(bool bWasSuccessful);
+	void OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result);
 
 private:
 	FOnCreateSessionCompleteDelegate CreateSessionCompleteDelegate;
+	FOnFindSessionsCompleteDelegate FindSessionsCompleteDelegate;
+	TSharedPtr<FOnlineSessionSearch> SessionSearch;
+	FOnJoinSessionCompleteDelegate JoinSessionCompleteDelegate;
+
+public:
+	FName SelectedMap = "Lobby";
+
+	// MainMenu UI 위젯 클래스 (에디터에서 설정)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = UI)
+	TSubclassOf<class UMainMenuWidget> MainMenuWidgetClass;
+
+	// 생성된 UI 인스턴스 저장용
+	UPROPERTY()
+	UMainMenuWidget* MainMenuWidgetInstance;
 };
 

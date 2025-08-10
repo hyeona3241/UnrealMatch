@@ -13,3 +13,21 @@ AMatchSystemGameMode::AMatchSystemGameMode()
 		DefaultPawnClass = PlayerPawnBPClass.Class;
 	}
 }
+
+
+void AMatchSystemGameMode::PostLogin(APlayerController* NewPlayer)
+{
+	Super::PostLogin(NewPlayer);
+
+	UE_LOG(LogTemp, Warning, TEXT("A client joined: %s"), *NewPlayer->GetName());
+
+	if (GEngine)
+	{
+		GEngine->AddOnScreenDebugMessage(
+			-1,
+			5.f,
+			FColor::Green,
+			FString::Printf(TEXT("A player joined: %s"), *NewPlayer->GetName())
+		);
+	}
+}

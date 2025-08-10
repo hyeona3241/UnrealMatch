@@ -1,13 +1,17 @@
 {
 	"FileVersion": 3,
-	"EngineAssociation": "5.4",
+	"EngineAssociation": "{AE690A04-4A6F-28C5-ACA0-DB9F8DD24A5F}",
 	"Category": "",
 	"Description": "",
 	"Modules": [
 		{
 			"Name": "MatchSystem",
 			"Type": "Runtime",
-			"LoadingPhase": "Default"
+			"LoadingPhase": "Default",
+			"AdditionalDependencies": [
+				"UMG",
+				"Engine"
+			]
 		}
 	],
 	"Plugins": [

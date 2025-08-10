@@ -13,6 +13,7 @@ class AMatchSystemGameMode : public AGameModeBase
 
 public:
 	AMatchSystemGameMode();
+	void PostLogin(APlayerController* NewPlayer);
 };
 
 

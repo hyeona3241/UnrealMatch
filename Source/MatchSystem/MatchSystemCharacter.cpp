@@ -12,6 +12,10 @@
 #include "InputActionValue.h"
 #include "OnlineSubsystem.h"
 #include "OnlineSessionSettings.h"
+#include <Online/OnlineSessionNames.h>
+
+#include "MainMenuWidget.h"
+#include "Kismet/GameplayStatics.h"
 
 DEFINE_LOG_CATEGORY(LogTemplateCharacter);
 
@@ -19,7 +23,9 @@ DEFINE_LOG_CATEGORY(LogTemplateCharacter);
 // AMatchSystemCharacter
 
 AMatchSystemCharacter::AMatchSystemCharacter() :
-	CreateSessionCompleteDelegate(FOnCreateSessionCompleteDelegate::CreateUObject(this, &ThisClass::OnCreateSessionComplete))
+	CreateSessionCompleteDelegate(FOnCreateSessionCompleteDelegate::CreateUObject(this, &ThisClass::OnCreateSessionComplete)),
+	FindSessionsCompleteDelegate(FOnFindSessionsCompleteDelegate::CreateUObject(this, &ThisClass::OnFindSessionsComplete)),
+	JoinSessionCompleteDelegate(FOnJoinSessionCompleteDelegate::CreateUObject(this, &ThisClass::OnJoinSessionComplete))
 {
 	// Set size for collision capsule
 	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
@@ -78,6 +84,29 @@ void AMatchSystemCharacter::BeginPlay()
 	// Call the base class  
 	Super::BeginPlay();
 
+	// 현재 맵 이름 확인
+	FString MapName = GetWorld()->GetMapName();
+	MapName.RemoveFromStart(GetWorld()->StreamingLevelsPrefix); // "UEDPIE_0_" 제거
+
+	if (MapName == "ThirdPersonMap") // 예: 시작 메뉴 레벨 이름
+	{
+		APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+		if (PC && MainMenuWidgetClass)
+		{
+			MainMenuWidgetInstance = CreateWidget<UMainMenuWidget>(PC, MainMenuWidgetClass);
+			if (MainMenuWidgetInstance)
+			{
+				MainMenuWidgetInstance->AddToViewport();
+
+				PC->bShowMouseCursor = true;
+				FInputModeUIOnly InputMode;
+				InputMode.SetWidgetToFocus(MainMenuWidgetInstance->TakeWidget());
+				InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+				PC->SetInputMode(InputMode);
+			}
+		}
+	}
+
 }
 
 void AMatchSystemCharacter::CreateGameSession()
@@ -103,15 +132,47 @@ void AMatchSystemCharacter::CreateGameSession()
 	SessionSettings->bAllowJoinViaPresence = true;
 	SessionSettings->bShouldAdvertise = true;
 	SessionSettings->bUsesPresence = true;
+
+	SessionSettings->bUseLobbiesIfAvailable = true;
+
 	SessionSettings->Set(FName("MatchType"), FString("FreeForAll"), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
+	//SessionSettings->Set(SEARCH_KEYWORDS, FString("MyGameSession"), EOnlineDataAdvertisementType::ViaOnlineServiceAndPing);
 
 	const ULocalPlayer* LocalPlayer = GetWorld()->GetFirstLocalPlayerFromController();
 	OnlineSessionInterface->CreateSession(*LocalPlayer->GetPreferredUniqueNetId(), NAME_GameSession, *SessionSettings);
 }
 
+void AMatchSystemCharacter::JoinGameSession()
+{
+
+	UE_LOG(LogTemp, Warning, TEXT("JoinGameSession() called"));
+
+	// Find game sessions
+	if (!OnlineSessionInterface.IsValid())
+	{
+		UE_LOG(LogTemp, Error, TEXT("OnlineSessionInterface invalid"));
+		return;
+	}
+	
+	OnlineSessionInterface->AddOnFindSessionsCompleteDelegate_Handle(FindSessionsCompleteDelegate);
+
+	UE_LOG(LogTemp, Warning, TEXT("[JoinGameSession] Start finding sessions..."));
+
+	SessionSearch = MakeShareable(new FOnlineSessionSearch());
+	SessionSearch->MaxSearchResults = 10000;
+	SessionSearch->bIsLanQuery = false;
+	SessionSearch->QuerySettings.Set(SEARCH_PRESENCE, true, EOnlineComparisonOp::Equals);
+	
+	//SessionSearch->QuerySettings.Set(SEARCH_KEYWORDS, FString("MyGameSession"), EOnlineComparisonOp::Equals);
+
+	const ULocalPlayer* LocalPlayer = GetWorld()->GetFirstLocalPlayerFromController();
+	OnlineSessionInterface->FindSessions(*LocalPlayer->GetPreferredUniqueNetId(), SessionSearch.ToSharedRef());
+}
 
 void AMatchSystemCharacter::OnCreateSessionComplete(FName SessionName, bool bWasSuccessful)
 {
+	UE_LOG(LogTemp, Warning, TEXT("[CreateSession] Result: %s"), bWasSuccessful ? TEXT("Success") : TEXT("Failed"));
+
 	if (bWasSuccessful)
 	{
 		if (GEngine)
@@ -122,6 +183,32 @@ void AMatchSystemCharacter::OnCreateSessionComplete(FName SessionName, bool bWas
 				FColor::Blue,
 				FString::Printf(TEXT("Created session: %s"), *SessionName.ToString())
 			);
+
+			GEngine->AddOnScreenDebugMessage(
+				-1,
+				15.f,
+				FColor::Yellow,
+				FString::Printf(TEXT("Select Map : %s"), *SelectedMap.ToString())
+			);
+		}
+
+		if (MainMenuWidgetInstance)
+		{
+			MainMenuWidgetInstance->RemoveFromParent();
+			MainMenuWidgetInstance = nullptr;
+
+			APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+			if (PC)
+			{
+				PC->bShowMouseCursor = false;
+				PC->SetInputMode(FInputModeGameOnly());
+			}
+		}
+
+		UWorld* World = GetWorld();
+		if (World)
+		{
+			World->ServerTravel(FString("/Game/ThirdPerson/Maps/Lobby?listen"));
 		}
 	}
 	else
@@ -135,8 +222,219 @@ void AMatchSystemCharacter::OnCreateSessionComplete(FName SessionName, bool bWas
 				FString(TEXT("Failed to create session!"))
 			);
 		}
+
+		// UI 다시 띄우기
+		APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+		if (PC && MainMenuWidgetClass)
+		{
+			MainMenuWidgetInstance = CreateWidget<UMainMenuWidget>(PC, MainMenuWidgetClass);
+			if (MainMenuWidgetInstance)
+			{
+				MainMenuWidgetInstance->AddToViewport();
+
+				PC->bShowMouseCursor = true;
+				FInputModeUIOnly InputMode;
+				InputMode.SetWidgetToFocus(MainMenuWidgetInstance->TakeWidget());
+				PC->SetInputMode(InputMode);
+			}
+		}
 	}
 
+}
+
+//타입이 MatchType일 때 Join 하도록 (원래 코드인데 지금 Join이 안되서 다른 코드로 테스트 중)
+void AMatchSystemCharacter::OnFindSessionsComplete(bool bWasSuccessful)
+{
+	UE_LOG(LogTemp, Warning, TEXT("OnFindSessionsComplete called: %s"), bWasSuccessful ? TEXT("Success") : TEXT("Failed"));
+
+	if (!OnlineSessionInterface.IsValid())
+	{
+		UE_LOG(LogTemp, Error, TEXT("[OnFindSessionsComplete] OnlineSessionInterface invalid"));
+		return;
+	}
+
+	const ULocalPlayer* LocalPlayer = GetWorld()->GetFirstLocalPlayerFromController();
+	FUniqueNetIdRepl LocalRepl = LocalPlayer->GetPreferredUniqueNetId();
+	TSharedPtr<const FUniqueNetId> LocalNetId = LocalRepl.GetUniqueNetId();
+
+	for (auto Result : SessionSearch->SearchResults)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Calling JoinSession for session: %s"), *Result.GetSessionIdStr());
+
+		FString MatchTypeValue;
+		if (Result.Session.SessionSettings.Get(FName("MatchType"), MatchTypeValue))
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Found session with MatchType: %s"), *MatchTypeValue);
+		}
+		else
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Found session with no MatchType key"));
+		}
+
+		FString Id = Result.GetSessionIdStr();
+		FString User = Result.Session.OwningUserName;
+
+		//자기 자신은 검색하지 않기
+		if (Result.Session.OwningUserId.IsValid() && LocalNetId.IsValid() &&
+			*Result.Session.OwningUserId == *LocalNetId)
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Skipping own session: %s"), *Result.GetSessionIdStr());
+			continue;
+		}
+
+		FString MatchType;
+		Result.Session.SessionSettings.Get(FName("MatchType"), MatchType);
+
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(
+				-1,
+				15.f,
+				FColor::Cyan,
+				FString::Printf(TEXT("Id: %s, User: %s"), *Id, *User)
+			);
+		}
+		if (MatchType == FString("FreeForAll"))
+		{
+			if (GEngine)
+			{
+				GEngine->AddOnScreenDebugMessage(
+					-1,
+					15.f,
+					FColor::Cyan,
+					FString::Printf(TEXT("Joining Match Type: %s"), *MatchType)
+				);
+			}
+
+
+			OnlineSessionInterface->AddOnJoinSessionCompleteDelegate_Handle(JoinSessionCompleteDelegate);
+
+			LocalPlayer = GetWorld()->GetFirstLocalPlayerFromController();
+			OnlineSessionInterface->JoinSession(*LocalPlayer->GetPreferredUniqueNetId(), NAME_GameSession, Result);
+
+		}
+	}
+}
+
+//void AMatchSystemCharacter::OnFindSessionsComplete(bool bWasSuccessful)
+//{
+//	UE_LOG(LogTemp, Warning, TEXT("OnFindSessionsComplete called: %s"), bWasSuccessful ? TEXT("Success") : TEXT("Failed"));
+//
+//	if (!OnlineSessionInterface.IsValid())
+//	{
+//		UE_LOG(LogTemp, Error, TEXT("[OnFindSessionsComplete] OnlineSessionInterface invalid"));
+//		return;
+//	}
+//
+//	/*const ULocalPlayer* LocalPlayer = GetWorld()->GetFirstLocalPlayerFromController();
+//	FUniqueNetIdRepl LocalNetIdRepl = LocalPlayer->GetPreferredUniqueNetId();
+//	if (!LocalNetIdRepl.IsValid())
+//	{
+//		UE_LOG(LogTemp, Error, TEXT("LocalNetIdRepl is invalid."));
+//		return;
+//	}
+//
+//	const FUniqueNetId* LocalNetId = LocalNetIdRepl.GetUniqueNetId();*/
+//
+//	for (auto& Result : SessionSearch->SearchResults)
+//	{
+//		
+//		//if (Result.Session.OwningUserId.IsValid())
+//		//{
+//		//	TSharedRef<const FUniqueNetId> OwnerId = Result.Session.OwningUserId.ToSharedRef();
+//
+//		//	if (*OwnerId == *LocalNetId)
+//		//	{
+//		//		// 자기 자신의 세션은 스킵
+//		//		continue;
+//		//	}
+//		//}
+//
+//		UE_LOG(LogTemp, Warning, TEXT("Calling JoinSession for session: %s"), *Result.GetSessionIdStr());
+//
+//		FString Id = Result.GetSessionIdStr();
+//		FString User = Result.Session.OwningUserName;
+//
+//		if (GEngine)
+//		{
+//			GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Cyan, FString::Printf(TEXT("Id: %s, User: %s"), *Id, *User));
+//		}
+//
+//		// 바로 Join하도록
+//		OnlineSessionInterface->AddOnJoinSessionCompleteDelegate_Handle(JoinSessionCompleteDelegate);
+//
+//		const ULocalPlayer* LocalPlayer = GetWorld()->GetFirstLocalPlayerFromController();
+//		OnlineSessionInterface->JoinSession(*LocalPlayer->GetPreferredUniqueNetId(), NAME_GameSession, Result);
+//
+//		break;
+//	}
+//}
+
+
+void AMatchSystemCharacter::OnJoinSessionComplete(FName SessionName, EOnJoinSessionCompleteResult::Type Result)
+{
+	UE_LOG(LogTemp, Warning, TEXT("[OnJoinSessionComplete] Called. Result: %d"), static_cast<int32>(Result));
+
+	if (!OnlineSessionInterface.IsValid())
+	{
+		UE_LOG(LogTemp, Error, TEXT("[OnJoinSessionComplete] OnlineSessionInterface invalid"));
+		return;
+	}
+	FString Address;
+	if (OnlineSessionInterface->GetResolvedConnectString(NAME_GameSession, Address))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("[OnJoinSessionComplete] ConnectString: %s"), *Address);
+
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(
+				-1,
+				15.f,
+				FColor::Yellow,
+				FString::Printf(TEXT("Connect string: %s"), *Address)
+			);
+		}
+
+		APlayerController* PlayerController = GetGameInstance()->GetFirstLocalPlayerController();
+		if (PlayerController)
+		{
+			PlayerController->ClientTravel(Address, ETravelType::TRAVEL_Absolute);
+		}
+		else
+		{
+			UE_LOG(LogTemp, Error, TEXT("[OnJoinSessionComplete] PlayerController is null"));
+		}
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("[OnJoinSessionComplete] Failed to resolve connect string"));
+
+		if (GEngine)
+		{
+			GEngine->AddOnScreenDebugMessage(
+				-1,
+				15.f,
+				FColor::Red,
+				FString(TEXT("Failed to join session!"))
+			);
+		}
+
+		// UI 다시 띄우기
+		APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+		if (PC && MainMenuWidgetClass)
+		{
+			MainMenuWidgetInstance = CreateWidget<UMainMenuWidget>(PC, MainMenuWidgetClass);
+			if (MainMenuWidgetInstance)
+			{
+				MainMenuWidgetInstance->AddToViewport();
+
+				PC->bShowMouseCursor = true;
+				FInputModeUIOnly InputMode;
+				InputMode.SetWidgetToFocus(MainMenuWidgetInstance->TakeWidget());
+				PC->SetInputMode(InputMode);
+			}
+		}
+	}
 }
 
 //////////////////////////////////////////////////////////////////////////
