@@ -9,12 +9,12 @@ void UMainMenuWidget::NativeConstruct()
 {
     Super::NativeConstruct();
 
-    if (Btn_CreateRoom) Btn_CreateRoom->OnClicked.AddDynamic(this, &UMainMenuWidget::OnClickCreateRoom);
-    if (Btn_JoinRoom) Btn_JoinRoom->OnClicked.AddDynamic(this, &UMainMenuWidget::OnClickJoinRoom);
-    if (Btn_ConfirmCreate) Btn_ConfirmCreate->OnClicked.AddDynamic(this, &UMainMenuWidget::OnClickConfirmCreate);
-    if (Btn_Map1) Btn_Map1->OnClicked.AddDynamic(this, &UMainMenuWidget::OnClickMap1);
-    if (Btn_Map2) Btn_Map2->OnClicked.AddDynamic(this, &UMainMenuWidget::OnClickMap2);
-    if (Btn_Map3) Btn_Map3->OnClicked.AddDynamic(this, &UMainMenuWidget::OnClickMap3);
+    //if (Btn_CreateRoom) Btn_CreateRoom->OnClicked.AddDynamic(this, &UMainMenuWidget::OnClickCreateRoom);
+    //if (Btn_JoinRoom) Btn_JoinRoom->OnClicked.AddDynamic(this, &UMainMenuWidget::OnClickJoinRoom);
+    //if (Btn_ConfirmCreate) Btn_ConfirmCreate->OnClicked.AddDynamic(this, &UMainMenuWidget::OnClickConfirmCreate);
+    //if (Btn_Map1) Btn_Map1->OnClicked.AddDynamic(this, &UMainMenuWidget::OnClickMap1);
+    //if (Btn_Map2) Btn_Map2->OnClicked.AddDynamic(this, &UMainMenuWidget::OnClickMap2);
+    //if (Btn_Map3) Btn_Map3->OnClicked.AddDynamic(this, &UMainMenuWidget::OnClickMap3);
 
     if (MapSelectionPanel)
     {
@@ -27,6 +27,9 @@ void UMainMenuWidget::OnClickCreateRoom()
     if (MapSelectionPanel)
         MapSelectionPanel->SetVisibility(ESlateVisibility::Visible);
 }
+
+// 참가랑 생성 실패시 위젯 다시 뜨도록 코드 추가하기
+
 
 void UMainMenuWidget::OnClickJoinRoom()
 {
