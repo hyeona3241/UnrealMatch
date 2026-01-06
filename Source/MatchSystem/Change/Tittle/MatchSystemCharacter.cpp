@@ -14,7 +14,7 @@
 #include "OnlineSessionSettings.h"
 #include <Online/OnlineSessionNames.h>
 
-#include "MainMenuWidget.h"
+#include "MatchSystem/Tittle/Widget/MainMenuWidget.h"
 #include "Kismet/GameplayStatics.h"
 
 DEFINE_LOG_CATEGORY(LogTemplateCharacter);

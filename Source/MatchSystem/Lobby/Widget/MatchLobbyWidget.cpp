@@ -5,7 +5,7 @@
 #include "Components/TextBlock.h"
 #include "Components/UniformGridPanel.h"
 #include "Components/HorizontalBox.h"
-#include "LobbyPlayerState.h"
+#include "MatchSystem/Change/Lobby/LobbyPlayerState.h"
 
 void UMatchLobbyWidget::NativeConstruct()
 {

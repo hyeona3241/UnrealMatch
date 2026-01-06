@@ -6,7 +6,7 @@
 #include "Engine/TargetPoint.h"   // ATargetPoint
 #include "LobbyPlayerState.h"
 #include "LobbyPlayerController.h"
-#include "LobbyPawn.h"
+#include "MatchSystem/Lobby/LobbyPawn.h"
 
 ALobbyGameMode::ALobbyGameMode()
 {

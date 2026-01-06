@@ -2,7 +2,7 @@
 #include "Components/Button.h"
 #include "Components/TextBlock.h"
 #include "Components/CheckBox.h"
-#include "LobbyPlayerState.h"
+//#include "LobbyPlayerState.h"
 
 void UPlayerSlotWidget::NativeConstruct()
 {

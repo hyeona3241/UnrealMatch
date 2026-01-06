@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
-#include "MatchLobbyWidget.h"
+#include "MatchSystem/Lobby/Widget/MatchLobbyWidget.h"
 #include "LobbyPlayerController.generated.h"
 
 /**
