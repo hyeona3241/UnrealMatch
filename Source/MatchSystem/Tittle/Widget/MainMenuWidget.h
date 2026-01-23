@@ -23,6 +23,10 @@ public:
 
     UFUNCTION(BlueprintCallable, Category = "MainMenu|Buttons")
     void OnClickJoinRoom();
+    
+    
+    UFUNCTION(BlueprintCallable, Category = "MainMenu|Buttons")
+    void OnClickJoinRoom2();
 
     UFUNCTION(BlueprintCallable, Category = "MainMenu|Buttons")
     void OnClickConfirmCreate();
@@ -56,6 +60,9 @@ protected:
     UPROPERTY(BlueprintReadOnly, Category = "MainMenu")
     FName SelectedMap;
 
+    UPROPERTY(meta = (BindWidget))
+    UWidget* ServerListPanel;
+    
 private:
     UFUNCTION()
     void SetSelectedMap(FName MapName);

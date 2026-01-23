@@ -20,6 +20,11 @@ void UMainMenuWidget::NativeConstruct()
     {
         MapSelectionPanel->SetVisibility(ESlateVisibility::Collapsed);
     }
+
+    if (ServerListPanel)
+    {
+        ServerListPanel->SetVisibility(ESlateVisibility::Collapsed);
+    }
 }
 
 void UMainMenuWidget::OnClickCreateRoom()
@@ -44,6 +49,12 @@ void UMainMenuWidget::OnClickJoinRoom()
     {
         UE_LOG(LogTemp, Error, TEXT("Failed to cast to AMatchSystemCharacter"));
     }
+}
+
+void UMainMenuWidget::OnClickJoinRoom2()
+{
+    if (ServerListPanel)
+        ServerListPanel->SetVisibility(ESlateVisibility::Visible);
 }
 
 void UMainMenuWidget::OnClickConfirmCreate()
